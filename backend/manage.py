@@ -6,7 +6,13 @@ import sys
 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'carbucks_engine.settings')
+    
     try:
+
+        # Override default port for `runserver` command
+        from django.core.management.commands.runserver import Command as runserver
+        runserver.default_port = "8888"
+
         from django.core.management import execute_from_command_line
     except ImportError as exc:
         raise ImportError(
