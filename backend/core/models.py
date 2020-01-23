@@ -32,6 +32,9 @@ class Car(models.Model):
   def __str__(self):
     return self.model
 
+  class Meta:
+    ordering = ['id']    
+
 class FuelType(models.Model):
 
   # django 3.0 + 

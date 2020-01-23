@@ -29,6 +29,10 @@ ALLOWED_HOSTS = []
 
 AUTH_USER_MODEL = 'core.User'
 
+GRAPHENE = {
+    'SCHEMA': 'carbucks_engine.schema.schema'
+}
+
 # Application definition
 
 INSTALLED_APPS = [
