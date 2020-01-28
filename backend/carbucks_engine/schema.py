@@ -7,4 +7,7 @@ class Query(core.schema.Query, graphene.ObjectType):
   # as we begin to add more apps to our project
   pass
 
-schema = graphene.Schema(query=Query)
+class MyMutations(graphene.ObjectType):
+  create_fuel_type = core.schema.CreateFuelType.Field()
+
+schema = graphene.Schema(query=Query, mutation=MyMutations)
