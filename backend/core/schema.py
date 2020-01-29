@@ -14,8 +14,9 @@ class FuelTypeNode(DjangoObjectType):
     }
     interfaces = (relay.Node, )
 
-class CreateFuelType(Mutation):
-  class Arguments:
+class CreateFuelType(relay.ClientIDMutation):
+  
+  class Input:
     # The input arguments for this mutation
     code = String(required=True)
     label = String(required=True)
@@ -25,7 +26,10 @@ class CreateFuelType(Mutation):
   # The class attributes define the response of the mutation
   fuel_type = Field(FuelTypeNode)
 
-  def mutate(self, info, code, label):
+  def mutate_and_get_payload (root, info, input):
+    code = input['code']
+    label = input['label']
+
     fuel_type = FuelType(code=code, label=label)
     ok = True
     return CreateFuelType(fuel_type=fuel_type, ok=ok)
