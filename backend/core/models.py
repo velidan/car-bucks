@@ -4,6 +4,15 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 
 
+class FuelTypeMatchManager(models.Manager):
+
+  def get_queryset(self):
+    print(111111)
+    return super(FuelTypeMatchManager, self).get_queryset()
+
+  def match(self, query):
+    return self.filter(code__icontains=query)
+
 # to have a possibility to change the User model in future if necessary
 class User(AbstractUser):
     pass
@@ -37,6 +46,22 @@ class Car(models.Model):
     ordering = ['id']    
 
 class FuelType(models.Model):
+
+  # the first model data manager is the default manager, 
+  # if defined then Employee.objects will throw error 
+  # AttributeError: type object 'Employee' has no attribute 'objects'.
+  # but you had better set objects = models.Manager() 
+  # because Django use objects internally widely.
+  
+  objects = models.Manager()
+
+  # ---- Don't remove. For education purpose ----
+  # TODO: test case just to check how the django_filter 
+  # queryset can work with the model custom manager
+  objects = FuelTypeMatchManager()
+
+  match_manager = FuelTypeMatchManager()
+
 
   # django 3.0 + 
   # class TYPES(models.TextChoices):
