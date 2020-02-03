@@ -1,7 +1,7 @@
 import graphene
 import django_filters
 from django.db import models
-from graphene import relay, ObjectType, Mutation, String, Field
+from graphene import relay, ObjectType, Mutation, Int, String, Field
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 
@@ -17,6 +17,8 @@ query {
   allFuelTypes (codeMatch: "g") {
     edges {
       node {
+        id,
+        modelId,
         code,
         label
       }
@@ -53,6 +55,7 @@ class FuleTypeFilter(django_filters.FilterSet):
 class FuelTypeNode(DjangoObjectType):
   class Meta:
     model = FuelType
+    
     # use it when you want to use default django_filters
     # filter_fields = {
     #   'code': ['exact', 'icontains', 'istartswith'],
@@ -61,6 +64,12 @@ class FuelTypeNode(DjangoObjectType):
     # a custom Filter
     filterset_class = FuleTypeFilter
     interfaces = (relay.Node, )
+
+  # need a custom id field alias because realy injects it's own `id` property
+  model_id = Int()
+  def resolve_model_id(self, info):
+    # self is the selected model object
+    return self.id
     
 
 class CreateFuelType(relay.ClientIDMutation):
@@ -75,7 +84,7 @@ class CreateFuelType(relay.ClientIDMutation):
   # The class attributes define the response of the mutation
   fuel_type = Field(FuelTypeNode)
 
-  def mutate_and_get_payload (root, info, input):
+  def mutate_and_get_payload(root, info, input):
     code = input['code']
     label = input['label']
 
@@ -98,6 +107,79 @@ class FuelSubTypeNode(DjangoObjectType):
     }
 
     interfaces = (relay.Node, )
+
+# Create Input Object Types
+class FuelTypeInput(graphene.InputObjectType):
+    id = graphene.Int()
+    label = graphene.String()
+class FuelSubtypeInput(graphene.InputObjectType):
+    id = graphene.ID()
+    label = graphene.String()
+    fuel_type = graphene.Field(FuelTypeInput)
+
+
+# ---- working create query
+
+# mutation MyMutations {
+#     createFuelSubtype( input: { input : { label: "Mutation Subtype", fuelType: {
+#       id: 3
+#     }} } ) {
+#         fuelSubtype {
+#             label
+#         }
+#         ok
+#     }
+# }
+
+# ---- !working create query
+
+
+class CreateFuelSubType(relay.ClientIDMutation):
+  class Input:
+    input = FuelSubtypeInput(required=True)
+    # label = String(required=True)
+    # fuel_type_id = Int(required=True)
+
+  fuel_subtype = Field(FuelSubTypeNode)
+  ok = graphene.Boolean()
+
+  def mutate_and_get_payload(root, info, input):
+    label = input.label
+    fuel_type = FuelType.objects.get(pk=input.fuel_type.id)
+    print(f'fuel_type => {label} {fuel_type}')
+
+    fuel_subtype = FuelSubType(label=label, fuel_type=fuel_type)
+    ok = True
+    fuel_subtype.save()
+    return CreateFuelSubType(fuel_subtype=fuel_subtype, ok=ok)
+
+
+class UpdateFuelSubType(relay.ClientIDMutation):
+  class Input:
+    id = Int()
+    input = FuelSubtypeInput(required=True)
+
+  ok = True
+  fuel_subtype = Field(FuelSubTypeNode)
+
+  def mutate_and_get_payload(root, info, id, input):
+    ok = False
+    # fuel_subtype = FuelSubType.objects.get(pk=id)
+
+    
+    
+    
+
+    if FuelSubType.objects.filter(pk=id).update(**input):
+      fuel_subtype = FuelSubType.objects.get(pk=id)
+      ok = True
+      # fuel_subtype.label = input.label
+      # fuel_subtype.save()
+
+      return UpdateFuelSubType(fuel_subtype=fuel_subtype)
+
+    return UpdateFuelSubType(fuel_subtype=None)
+
 # --- ! Fuel SubType
 
 
