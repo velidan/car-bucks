@@ -1,4 +1,5 @@
 import graphene
+from graphql import GraphQLError
 import django_filters
 from django.db import models
 from graphene import relay, ObjectType, Mutation, Int, String, Field
@@ -28,6 +29,7 @@ query {
 
 allows to define some nice aliases for filter. Eg.code__Icontaints to codeMatch, or match
 """
+
 class FuleTypeFilter(django_filters.FilterSet):
     """Filter for FuelType if contains filter queryset"""
     code_match = django_filters.CharFilter(field_name='code', method='filter_code_match')
@@ -109,13 +111,16 @@ class FuelSubTypeNode(DjangoObjectType):
     interfaces = (relay.Node, )
 
 # Create Input Object Types
-class FuelTypeInput(graphene.InputObjectType):
-    id = graphene.Int()
-    label = graphene.String()
+# class FuelTypeInput(graphene.InputObjectType):
+#   id = graphene.Int()
+
+#   # label = graphene.String()
+
 class FuelSubtypeInput(graphene.InputObjectType):
-    id = graphene.ID()
-    label = graphene.String()
-    fuel_type = graphene.Field(FuelTypeInput)
+  id = graphene.Int()
+  label = graphene.String()
+  # it's a fuel_type id
+  fuel_type = graphene.Int()
 
 
 # ---- working create query
@@ -154,33 +159,58 @@ class CreateFuelSubType(relay.ClientIDMutation):
     return CreateFuelSubType(fuel_subtype=fuel_subtype, ok=ok)
 
 
+# --- Working update QUERY
+
+"""
+mutation MyMutations {
+    updateFuelSubtype(input: { id: 2, input: { label: "Updated 11 Mutation Label", 
+      fuelType: 3 } }) {
+    		__typename,
+        fuelSubtype {
+            label,
+          	fuelType {
+              label,
+              id,
+              modelId,
+              code
+            }
+        }
+    }
+}
+"""
 class UpdateFuelSubType(relay.ClientIDMutation):
+  fuel_subtype = Field(FuelSubTypeNode)
+
   class Input:
     id = Int()
     input = FuelSubtypeInput(required=True)
 
-  ok = True
-  fuel_subtype = Field(FuelSubTypeNode)
 
   def mutate_and_get_payload(root, info, id, input):
-    ok = False
-    # fuel_subtype = FuelSubType.objects.get(pk=id)
-
-    
-    
+    fuel_subtype = None
+  
+    if input.fuel_type != None:
+      # if we are using get - it throws error on unexisting ID. need to try/except it
+      fuel_type = FuelType.objects.filter(pk=input.fuel_type).first()
+      if not fuel_type:
+        # CustomError
+        raise Exception('Invalid Fuel Type ID!')
+      # replacing the input id type to the real Model
+      input.fuel_type = fuel_type
+    else:
+      del input.fuel_type
+      # need to remove unused fuel_type id
     
 
     if FuelSubType.objects.filter(pk=id).update(**input):
       fuel_subtype = FuelSubType.objects.get(pk=id)
-      ok = True
       # fuel_subtype.label = input.label
       # fuel_subtype.save()
 
-      return UpdateFuelSubType(fuel_subtype=fuel_subtype)
-
-    return UpdateFuelSubType(fuel_subtype=None)
+    return UpdateFuelSubType(fuel_subtype=fuel_subtype)
 
 # --- ! Fuel SubType
+
 
 
 class Query(ObjectType):
