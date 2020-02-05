@@ -5,9 +5,12 @@ from django.db import models
 from graphene import relay, ObjectType, Mutation, Int, String, Field
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
+from django.core.exceptions import ValidationError
 
 from core.models import ( Car, FuelType, FuelSubType, PaymentType,
         Currency, Station, Payment, )
+
+from core.helpers import get_object, update_create_instance, get_errors
 
 # --- Fuel Type ---
 """
@@ -19,7 +22,7 @@ query {
     edges {
       node {
         id,
-        modelId,
+        pk,
         code,
         label
       }
@@ -67,13 +70,28 @@ class FuelTypeNode(DjangoObjectType):
     filterset_class = FuleTypeFilter
     interfaces = (relay.Node, )
 
-  # need a custom id field alias because realy injects it's own `id` property
-  model_id = Int()
-  def resolve_model_id(self, info):
+  # need a custom id field alias because realy injects it's own `id | pk` property
+  pk = Int()
+  def resolve_model_pk(self, info):
     # self is the selected model object
     return self.id
     
+"""
+mutation MyMutations {
+  createFuelType(input: { code: "z", label: "Zeta" }) {
+    __typename,
+    ok,
+    fuelType {
+      id,
+      pk,
+      label,
+      code
+    }
+    
+  }
+}
 
+"""
 class CreateFuelType(relay.ClientIDMutation):
   
   class Input:
@@ -86,9 +104,9 @@ class CreateFuelType(relay.ClientIDMutation):
   # The class attributes define the response of the mutation
   fuel_type = Field(FuelTypeNode)
 
-  def mutate_and_get_payload(root, info, input):
-    code = input['code']
-    label = input['label']
+  def mutate_and_get_payload(root, info, **input):
+    code = input.get('code')
+    label = input.get('label')
 
     fuel_type = FuelType(code=code, label=label)
     ok = True
@@ -111,47 +129,55 @@ class FuelSubTypeNode(DjangoObjectType):
     interfaces = (relay.Node, )
 
 # Create Input Object Types
-# class FuelTypeInput(graphene.InputObjectType):
-#   id = graphene.Int()
-
-#   # label = graphene.String()
+class FuelTypeInput(graphene.InputObjectType):
+  pk = graphene.Int()
+  label = graphene.String()
 
 class FuelSubtypeInput(graphene.InputObjectType):
-  id = graphene.Int()
+  pk = graphene.Int()
   label = graphene.String()
   # it's a fuel_type id
   fuel_type = graphene.Int()
 
 
+
+
 # ---- working create query
 
-# mutation MyMutations {
-#     createFuelSubtype( input: { input : { label: "Mutation Subtype", fuelType: {
-#       id: 3
-#     }} } ) {
-#         fuelSubtype {
-#             label
-#         }
-#         ok
-#     }
-# }
+"""
+mutation MyMutations {
+ createFuelSubtype( input: { data: { label: "Another new Subtype", fuelType: 2 } } ) {
+		__typename,
+		fuelSubtype {
+      label,
+      fuelType {
+        label,
+        id,
+        pk,
+        code
+      }
+    }
+  }
+}
+"""
 
 # ---- !working create query
 
 
 class CreateFuelSubType(relay.ClientIDMutation):
-  class Input:
-    input = FuelSubtypeInput(required=True)
-    # label = String(required=True)
-    # fuel_type_id = Int(required=True)
-
   fuel_subtype = Field(FuelSubTypeNode)
   ok = graphene.Boolean()
 
-  def mutate_and_get_payload(root, info, input):
-    label = input.label
-    fuel_type = FuelType.objects.get(pk=input.fuel_type.id)
-    print(f'fuel_type => {label} {fuel_type}')
+  class Input:
+    data = FuelSubtypeInput(required=True)
+
+
+  def mutate_and_get_payload(root, info, data):
+    label = data.label
+    try:
+      fuel_type = FuelType.objects.get(pk=data.fuel_type)
+    except:
+      raise Exception('You need to pass the FuelType ID')
 
     fuel_subtype = FuelSubType(label=label, fuel_type=fuel_type)
     ok = True
@@ -163,53 +189,70 @@ class CreateFuelSubType(relay.ClientIDMutation):
 
 """
 mutation MyMutations {
-    updateFuelSubtype(input: { id: 2, input: { label: "Updated 11 Mutation Label", 
-      fuelType: 3 } }) {
+    updateFuelSubtype( input: { pk: 2, data : { label: "A test new FuelSubtype",
+      fuelType: 3  } } ) {
     		__typename,
         fuelSubtype {
             label,
           	fuelType {
               label,
               id,
-              modelId,
               code
             }
         }
     }
 }
 """
+
+print(f"FuelSubtypeInput(required=True) => {FuelSubtypeInput(required=True)}")
 class UpdateFuelSubType(relay.ClientIDMutation):
   fuel_subtype = Field(FuelSubTypeNode)
 
   class Input:
-    id = Int()
-    input = FuelSubtypeInput(required=True)
+    pk = Int()
+    data = FuelSubtypeInput(required=True)
 
 
-  def mutate_and_get_payload(root, info, id, input):
-    fuel_subtype = None
-  
-    if input.fuel_type != None:
+  def mutate_and_get_payload(root, info, **input):
+    pk = input.get('pk')
+    data = input.get('data')
+
+    fuel_type_pk = data.fuel_type
+
+    # a quickfix how to remote the unnecessary attr. In general we have
+    # data['fuel_type'], and data.fuel_type from the Relay...so we need to remove attr
+    # otherwise they will overlap at the django ORM level
+    del data['fuel_type']
+
+    # print(f"data => {data.fuel_type}, attr =? {data['fuel_type']}")
+    
+    if fuel_type_pk != None:
       # if we are using get - it throws error on unexisting ID. need to try/except it
-      fuel_type = FuelType.objects.filter(pk=input.fuel_type).first()
+      fuel_type = get_object(FuelType, fuel_type_pk)
       if not fuel_type:
         # CustomError
         raise Exception('Invalid Fuel Type ID!')
       # replacing the input id type to the real Model
-      input.fuel_type = fuel_type
+      data.fuel_type = fuel_type
     else:
-      del input.fuel_type
       # need to remove unused fuel_type id
-    
+      del data.fuel_type
 
-    if FuelSubType.objects.filter(pk=id).update(**input):
-      fuel_subtype = FuelSubType.objects.get(pk=id)
-      # fuel_subtype.label = input.label
-      # fuel_subtype.save()
 
-    return UpdateFuelSubType(fuel_subtype=fuel_subtype)
+    try:
+      fuel_subtype_inst = get_object(FuelSubType, pk) # get fuelsubtype by id
+      
+      if fuel_subtype_inst:
+          # modify and update book model instance
+          updated_fuel_subtype = update_create_instance(fuel_subtype_inst, data)
+          #  return cls(updated_book=updated_book)
+          return UpdateFuelSubType(fuel_subtype=updated_fuel_subtype)
+    except ValidationError as e:
+      # return an error if something wrong happens
+      return UpdateFuelSubType(fuel_subtype=None, errors=get_errors(e))
 
 # --- ! Fuel SubType
+
 
 
 
