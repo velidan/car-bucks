@@ -92,6 +92,7 @@ mutation MyMutations {
 }
 
 """
+
 class CreateFuelType(relay.ClientIDMutation):
   
   class Input:
