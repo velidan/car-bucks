@@ -164,6 +164,236 @@ mutation MyMutations {
 
 # ---- !working create query
 
+# TEST
+
+class MutationRootOptions(graphene.types.objecttype.ObjectTypeOptions):
+    model = None
+    # has_permission = lambda obj, user: True
+
+class MutationRoot(graphene.ObjectType):
+
+    @classmethod
+    def __init_subclass_with_meta__(
+        cls,
+        model=None,
+        interfaces=(),
+        _meta=None,
+        has_permission=None,
+        **options
+    ):
+        if not _meta:
+            _meta = MutationRootOptions(cls)
+        _meta.model = model
+        # _meta.has_permission = has_permission or (lambda obj, user: True)
+        super(MutationRoot, cls).__init_subclass_with_meta__(
+            _meta=_meta, interfaces=interfaces, **options
+        )
+
+    @classmethod
+    def resolve(cls, root, info, pk=None):
+      if cls._meta.model is None:
+          return {}
+
+      if pk is None:
+          return getattr(root, cls._meta.model.__name__, {})
+      try:
+          obj = cls._meta.model.objects.get(id=pk)
+          return obj
+          # return obj if cls._meta.has_permission(obj, info.context.user) else None
+      except cls._meta.model.DoesNotExist:
+          return None
+
+    @classmethod
+    def Field(cls):
+      return graphene.Field(cls, pk=graphene.ID(required=False), resolver=cls.resolve)
+
+class MutationPayload(graphene.ObjectType):
+    ok = graphene.Boolean(required=True)
+    errors = graphene.List(graphene.String, required=True)
+    query = graphene.Field('carbucks_engine.schema.Query', required=True)
+
+    def resolve_ok(self, info):
+        return len(self.errors or []) == 0
+
+    def resolve_errors(self, info):
+        return self.errors or []
+
+    def resolve_query(self, info):
+        return {}
+
+"""
+mutation MuMutations {
+  fuelSubtype {
+    create(input: { data: { label: "E-95", fuelType: 1} } ) {
+      ok,
+      errors,
+      query {
+        allFuelSubTypes {
+          edges {
+            node {
+              id,
+              label
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+"""
+
+class CreateFuelSubTypeChildMut(MutationPayload, relay.ClientIDMutation):
+  # fuel_subtype = Field(FuelSubTypeNode)
+  # ok = graphene.Boolean()
+
+  class Input:
+    data = FuelSubtypeInput(required=True)
+
+
+  def mutate_and_get_payload(_, info, data):
+    errors = []
+
+    # it's a child mutation so the fuelSubtype will be a first arg
+    label = data.label
+
+    if len(label) < 2:
+      errors.append('label_too_short')
+
+    if FuelSubType.objects.filter(label=label).exists():
+      errors.append('label_already_taken')
+
+    try:
+      fuel_type = FuelType.objects.get(pk=data.fuel_type)
+    except:
+      errors.append('invalid_fuel_type')
+
+    if not errors:
+      fuel_subtype = FuelSubType(label=label, fuel_type=fuel_type)
+      fuel_subtype.save()
+
+    return CreateFuelSubTypeChildMut(errors=errors)
+
+"""
+Working
+mutation MyMutations {
+  fuelSubtype(pk: 1) {
+    update(input: { data: { label: "Shell V-Power", fuelType: 2 } }) {
+			ok,
+      errors,
+      query {
+        allFuelSubTypes {
+        	edges {
+            node {
+              id,
+              label,
+            }
+          }
+        }
+      }
+		}
+  }
+}
+"""
+class UpdateFuelSubTypeChildMut(MutationPayload, relay.ClientIDMutation):
+  class Input:
+    data = FuelSubtypeInput(required=True)
+
+
+  def mutate_and_get_payload(fuelSubType, info, data):
+    # it's a child mutation so the fuelSubtype will be a first arg
+    errors = []
+
+    if fuelSubType is None:
+      return None
+    
+    label = data.label
+
+    if len(label) < 2:
+      errors.append('label_too_short')
+
+    if FuelSubType.objects.filter(label=label).exists():
+      errors.append('label_already_taken')
+    
+
+    fuel_type_pk = data.fuel_type
+
+    # a quickfix how to remote the unnecessary attr. In general we have
+    # data['fuel_type'], and data.fuel_type from the Relay...so we need to remove attr
+    # otherwise they will overlap at the django ORM level
+    del data['fuel_type']
+
+    if fuel_type_pk != None:
+      # if we are using get - it throws error on unexisting ID. need to try/except it
+      fuel_type = get_object(FuelType, fuel_type_pk)
+      if not fuel_type:
+        # CustomError
+        # raise Exception('Invalid Fuel Type ID!')
+        errors.append('fuel_type_invalid_id')
+      # replacing the input id type to the real Model
+      data.fuel_type = fuel_type
+    else:
+      # need to remove unused fuel_type id
+      del data.fuel_type
+
+    if not errors:
+        updated_fuel_subtype = update_create_instance(fuelSubType, data)
+
+    return UpdateFuelSubTypeChildMut(errors=errors)
+
+
+
+"""
+mutation MyMutations {
+  fuelSubtype(pk: 4) {
+    delete {
+      ok,
+      errors,
+    }
+  }
+}
+
+"""
+class DeleteFuelSubTypeChildMut(MutationPayload, Mutation):
+
+  def mutate(fuelSubType, info):
+    errors = []
+
+    try:
+      fuelSubType.delete()
+    except Exception as e:
+      # return an error if something wrong happens
+      errors.append('cant_delete_fuel_subtype')
+
+    return DeleteFuelSubTypeChildMut(errors)
+
+
+class FuelSubTypeMutationRoot(MutationRoot):
+
+    class Meta:
+        model = FuelSubType
+
+    create = CreateFuelSubTypeChildMut.Field()
+    update = UpdateFuelSubTypeChildMut.Field()
+    delete = DeleteFuelSubTypeChildMut.Field()
+
+
+    # # errors.append('some_error')
+    # label = data.label
+    # try:
+    #   fuel_type = FuelType.objects.get(pk=data.fuel_type)
+    # except:
+    #   raise Exception('You need to pass the FuelType ID')
+
+    # fuel_subtype = FuelSubType(label=label, fuel_type=fuel_type, errors=errors)
+    # ok = True
+    # fuel_subtype.save()
+    # return CreateFuelSubType(fuel_subtype=fuel_subtype, ok=ok)
+
+
+
+#!TeST
+
 
 class CreateFuelSubType(relay.ClientIDMutation):
   fuel_subtype = Field(FuelSubTypeNode)
@@ -180,7 +410,7 @@ class CreateFuelSubType(relay.ClientIDMutation):
     except:
       raise Exception('You need to pass the FuelType ID')
 
-    fuel_subtype = FuelSubType(label=label, fuel_type=fuel_type)
+    fuel_subtype = FuelSubType(label=label, fuel_type=fuel_type, errors=errors)
     ok = True
     fuel_subtype.save()
     return CreateFuelSubType(fuel_subtype=fuel_subtype, ok=ok)
@@ -254,6 +484,13 @@ class UpdateFuelSubType(relay.ClientIDMutation):
 # --- ! Fuel SubType
 
 
+"""
+mutation MyMutations {
+  deleteFuelSubtype(input: { pk: 3 }) {
+    ok
+  }
+}
+"""
 class DeleteFuelSubType(relay.ClientIDMutation):
   ok = graphene.Boolean()
   
@@ -281,3 +518,5 @@ class Query(ObjectType):
 
   fuel_sub_type = relay.Node.Field(FuelSubTypeNode)
   all_fuel_sub_types = DjangoFilterConnectionField(FuelSubTypeNode)
+
+  
