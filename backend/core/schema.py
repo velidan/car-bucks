@@ -205,7 +205,6 @@ mutation MyMutations {
 }
 """
 
-print(f"FuelSubtypeInput(required=True) => {FuelSubtypeInput(required=True)}")
 class UpdateFuelSubType(relay.ClientIDMutation):
   fuel_subtype = Field(FuelSubTypeNode)
 
@@ -253,6 +252,25 @@ class UpdateFuelSubType(relay.ClientIDMutation):
       return UpdateFuelSubType(fuel_subtype=None, errors=get_errors(e))
 
 # --- ! Fuel SubType
+
+
+class DeleteFuelSubType(relay.ClientIDMutation):
+  ok = graphene.Boolean()
+  
+  class Input:
+    id = graphene.String()
+    pk = graphene.Int()
+
+  def mutate_and_get_payload(root, info, **input):
+    pk = input.get('id', input.get('pk'))
+
+    try:
+      deleted_count = FuelSubType.objects.filter(id=pk).delete()[0]
+      return DeleteFuelSubType(ok=True if deleted_count else False )
+    except Exception as e:
+      # return an error if something wrong happens
+      return DeleteFuelSubType(ok=False, errors=get_errors(e))
+
 
 
 

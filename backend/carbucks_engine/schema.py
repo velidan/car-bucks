@@ -12,6 +12,7 @@ class MyMutations(graphene.ObjectType):
 
   create_fuel_subtype = core.schema.CreateFuelSubType.Field()
   update_fuel_subtype = core.schema.UpdateFuelSubType.Field()
+  delete_fuel_subtype = core.schema.DeleteFuelSubType.Field()
   
 
 schema = graphene.Schema(query=Query, mutation=MyMutations)
