@@ -1,13 +1,24 @@
 import graphene
+import graphql_jwt
 
 import core.schema
+import carbucks_engine.users.schema
 
-class Query(core.schema.Query, graphene.ObjectType):
+class Query(
+  core.schema.Query, 
+  carbucks_engine.users.schema.Query, 
+  graphene.ObjectType):
   # This class will inherit from multiple Queries
   # as we begin to add more apps to our project
   pass
 
 class MyMutations(graphene.ObjectType):
+  token_auth = graphql_jwt.ObtainJSONWebToken.Field()
+  verify_token = graphql_jwt.Verify.Field()
+  refresh_token = graphql_jwt.Refresh.Field()
+
+  create_user = carbucks_engine.users.schema.CreateUser.Field()
+
   create_fuel_type = core.schema.CreateFuelType.Field()
 
   create_fuel_subtype = core.schema.CreateFuelSubType.Field()
