@@ -16,6 +16,7 @@ class MyMutations(graphene.ObjectType):
   token_auth = graphql_jwt.ObtainJSONWebToken.Field()
   verify_token = graphql_jwt.Verify.Field()
   refresh_token = graphql_jwt.Refresh.Field()
+  delete_token = carbucks_engine.users.schema.DeleteJWTCookie.Field()
 
   create_user = carbucks_engine.users.schema.CreateUser.Field()
 

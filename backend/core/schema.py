@@ -7,6 +7,8 @@ from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from django.core.exceptions import ValidationError
 
+from graphql_jwt.decorators import login_required
+
 from core.models import ( Car, FuelType, FuelSubType, PaymentType,
         Currency, Station, Payment, )
 
@@ -56,6 +58,8 @@ class FuleTypeFilter(django_filters.FilterSet):
     #   a = FuelType.match_manager.match('g')
     #   # should return a list
     #   return list(a)
+
+
 
 class FuelTypeNode(DjangoObjectType):
   class Meta:
@@ -514,7 +518,19 @@ class DeleteFuelSubType(relay.ClientIDMutation):
 
 class Query(ObjectType):
   fuel_type = relay.Node.Field(FuelTypeNode)
+  
   all_fuel_types = DjangoFilterConnectionField(FuelTypeNode)
+  # all_fuel_types = relay.ConnectionField(FuelTypeNode)
+  
+  @login_required
+  def resolve_all_fuel_types(self, info):
+
+    # context will reference to the Django request
+    print(info.context.user)
+    if not info.context.user.is_authenticated:
+        return FuelType.objects.none()
+    else:
+        return FuelType.objects.all()
 
   fuel_sub_type = relay.Node.Field(FuelSubTypeNode)
   all_fuel_sub_types = DjangoFilterConnectionField(FuelSubTypeNode)
