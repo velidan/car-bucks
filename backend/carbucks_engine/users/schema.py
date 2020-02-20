@@ -39,6 +39,9 @@ class DeleteJWTCookie(relay.ClientIDMutation):
 
     this we are setting the delete_jwt_cookie boolean to True
     and jwt_cookie in the urls.py will detect it and remove the cookie
+
+    P.S. the current graphene_jwt is bad cause it doesn't contain such logic
+    need to use the one from their GitHub!!!
     """
     deleted = Boolean(required=True)
 

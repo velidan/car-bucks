@@ -7,7 +7,7 @@ from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from django.core.exceptions import ValidationError
 
-from graphql_jwt.decorators import login_required
+from core.relay_fields import ProtectedDjangoFilterConnectionField
 
 from core.models import ( Car, FuelType, FuelSubType, PaymentType,
         Currency, Station, Payment, )
@@ -62,6 +62,7 @@ class FuleTypeFilter(django_filters.FilterSet):
 
 
 class FuelTypeNode(DjangoObjectType):
+
   class Meta:
     model = FuelType
     
@@ -263,6 +264,13 @@ class CreateFuelSubTypeChildMut(MutationPayload, relay.ClientIDMutation):
 
     if len(label) < 2:
       errors.append('label_too_short')
+def logger(fn):
+    print('LOGGER')
+
+    def fn_wrapper(*args, **kwargs):
+        return fn(*args, **kwargs)
+
+    return fn_wrapper
 
     if FuelSubType.objects.filter(label=label).exists():
       errors.append('label_already_taken')
@@ -519,18 +527,18 @@ class DeleteFuelSubType(relay.ClientIDMutation):
 class Query(ObjectType):
   fuel_type = relay.Node.Field(FuelTypeNode)
   
-  all_fuel_types = DjangoFilterConnectionField(FuelTypeNode)
+  all_fuel_types = ProtectedDjangoFilterConnectionField(FuelTypeNode)
+  # all_fuel_types = DjangoFilterConnectionField(FuelTypeNode)
   # all_fuel_types = relay.ConnectionField(FuelTypeNode)
   
-  @login_required
-  def resolve_all_fuel_types(self, info):
+  # @login_required
+  # def resolve_all_fuel_types(self, info):
 
-    # context will reference to the Django request
-    print(info.context.user)
-    if not info.context.user.is_authenticated:
-        return FuelType.objects.none()
-    else:
-        return FuelType.objects.all()
+  #   # context will reference to the Django request
+  #   if not info.context.user.is_authenticated:
+  #       return FuelType.objects.none()
+  #   else:
+  #       return FuelType.objects.all()
 
   fuel_sub_type = relay.Node.Field(FuelSubTypeNode)
   all_fuel_sub_types = DjangoFilterConnectionField(FuelSubTypeNode)
