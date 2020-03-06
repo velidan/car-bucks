@@ -166,12 +166,12 @@ mutation MyMutations {
 #       return DeleteFuelSubType(ok=False, errors=get_errors(e))
 
 
-class PaymentTypeConnection(relay.Connection):
-    class Meta:
-        node = PaymentTypeQL.PaymentTypeNode
-        
-    class Edge:
-        other = String()
+# class PaymentTypeConnection(relay.Connection):
+#   class Meta:
+#       node = PaymentTypeQL.PaymentTypeNode
+      
+#   class Edge:
+#       other = String()
 
 
 
@@ -184,6 +184,6 @@ class Query(ObjectType):
   all_fuel_sub_types = DjangoFilterConnectionField(FuelSubTypeQL.FuelSubTypeNode)
 
   fuel_type = relay.Node.Field(PaymentTypeQL.PaymentTypeNode)
-  all_payment_types = relay.ConnectionField(PaymentTypeConnection)
+  all_payment_types = DjangoFilterConnectionField(PaymentTypeQL.PaymentTypeNode)
 
   

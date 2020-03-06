@@ -17,6 +17,7 @@ class PaymentTypeNode(DjangoObjectType):
 
   class Meta:
     model = PaymentType
+    filter_fields = []
 
     interfaces = (relay.Node, )
 
