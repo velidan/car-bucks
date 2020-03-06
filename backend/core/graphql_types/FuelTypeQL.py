@@ -9,6 +9,11 @@ from django.core.exceptions import ValidationError
 
 from core.models import FuelType
 
+# is it in use?
+class FuelTypeInput(graphene.InputObjectType):
+  pk = graphene.Int()
+  label = graphene.String()
+
 # --- Fuel Type ---
 """
 Custom filter

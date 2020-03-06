@@ -4,7 +4,7 @@ import graphql_jwt
 import core.schema
 import carbucks_engine.users.schema
 
-from core.graphql_types import ( FuelTypeQL, FuelSubTypeQL )
+from core.graphql_types import ( FuelTypeQL, FuelSubTypeQL, PaymentTypeQL )
 
 class Query(
   core.schema.Query, 
@@ -29,6 +29,7 @@ class MyMutations(graphene.ObjectType):
   # delete_fuel_subtype = core.schema.DeleteFuelSubType.Field()
 
   fuel_subtype = FuelSubTypeQL.FuelSubTypeMutationRoot.Field()
+  payment_type = PaymentTypeQL.PaymentTypeMutationRoot.Field()
   
 
 schema = graphene.Schema(query=Query, mutation=MyMutations)

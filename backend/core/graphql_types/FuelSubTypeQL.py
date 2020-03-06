@@ -35,9 +35,6 @@ class FuelSubTypeNode(DjangoObjectType):
     return self.id
 
 # Create Input Object Types
-class FuelTypeInput(graphene.InputObjectType):
-  pk = graphene.Int()
-  label = graphene.String()
 
 class FuelSubtypeInput(graphene.InputObjectType):
   pk = graphene.Int()

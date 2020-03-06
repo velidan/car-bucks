@@ -15,7 +15,7 @@ from core.models import ( Car, FuelType, FuelSubType, PaymentType,
 from core.helpers import get_object, update_create_instance, get_errors
 
 from core.graphql_types import (
-  FuelTypeQL, FuelSubTypeQL
+  FuelTypeQL, FuelSubTypeQL, PaymentTypeQL
 )
 
 
@@ -166,15 +166,24 @@ mutation MyMutations {
 #       return DeleteFuelSubType(ok=False, errors=get_errors(e))
 
 
+class PaymentTypeConnection(relay.Connection):
+    class Meta:
+        node = PaymentTypeQL.PaymentTypeNode
+        
+    class Edge:
+        other = String()
+
 
 
 
 class Query(ObjectType):
   fuel_type = relay.Node.Field(FuelTypeQL.FuelTypeNode)
-  
   all_fuel_types = ProtectedDjangoFilterConnectionField(FuelTypeQL.FuelTypeNode)
 
   fuel_sub_type = relay.Node.Field(FuelSubTypeQL.FuelSubTypeNode)
   all_fuel_sub_types = DjangoFilterConnectionField(FuelSubTypeQL.FuelSubTypeNode)
+
+  fuel_type = relay.Node.Field(PaymentTypeQL.PaymentTypeNode)
+  all_payment_types = relay.ConnectionField(PaymentTypeConnection)
 
   
